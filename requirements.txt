@@ -1,0 +1,7 @@
+pygame>=2.6.0
+numpy>=1.26.0
+jax >= 0.4.28
+tqdm>=4.66.0
+git+https://github.com/EMI-Group/tensorneat.git
+isort
+black

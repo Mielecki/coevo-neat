@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALife | Advanced Dashboard</title>
+    
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * { box-sizing: border-box; }
+
+        :root { 
+            --bg-color: #0f172a; --panel-bg: #1e293b; --accent-color: #38bdf8; 
+            --text-main: #f8fafc; --text-dim: #94a3b8; --border: #334155;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; 
+        }
+
+        header { 
+            height: 60px;
+            background-color: var(--panel-bg); 
+            padding: 0 20px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        h1 { margin: 0; font-size: 1.1rem; color: var(--accent-color); }
+
+        .main-content { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 10px; 
+            gap: 10px; 
+            min-height: 0;
+        }
+
+        .networks-row { 
+            flex: 55;
+            display: flex; 
+            gap: 10px; 
+            min-height: 0; 
+        }
+
+        .charts-row { 
+            flex: 45;
+            display: flex; 
+            gap: 10px; 
+            min-height: 0; 
+        }
+
+        .card { 
+            flex: 1; 
+            background: var(--panel-bg); 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            overflow: hidden; 
+            min-width: 0;
+        }
+
+        .card-header { 
+            padding: 8px; 
+            background: rgba(15, 23, 42, 0.5); 
+            font-size: 0.85rem; 
+            text-align: center; 
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .canvas-container { 
+            flex: 1; 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            min-height: 0;
+        }
+
+        .chart-container {
+            flex: 1;
+            position: relative;
+            padding: 10px;
+            min-height: 0;
+        }
+
+        canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .controls-row { display: flex; align-items: center; gap: 10px; }
+        .btn-main { background: var(--accent-color); color: #0f172a; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>ALife | Dashboard</h1>
+    <div class="controls-row">
+        <span id="sliderVal" style="color: var(--accent-color); font-size: 0.9rem;">Gen: 1</span>
+        <input type="range" id="genSlider" min="1" max="1" value="1" oninput="updateUI(this.value)" style="width: 120px;">
+        <input type="number" id="genInput" value="1" onchange="updateUI(this.value)" style="width: 50px; background: #0f172a; color: white; border: 1px solid var(--border);">
+        <button class="btn-main" onclick="loadLatest()" style="background: #10b981;">LIVE</button>
+    </div>
+</header>
+
+<div class="main-content">
+    <div class="networks-row">
+        <div class="card">
+            <div class="card-header" id="prey-title">Ofiara (Champion)</div>
+            <div id="net-prey" class="canvas-container"></div>
+        </div>
+        <div class="card">
+            <div class="card-header" id="pred-title">Drapieżnik (Champion)</div>
+            <div id="net-pred" class="canvas-container"></div>
+        </div>
+    </div>
+
+    <div class="charts-row">
+        <div class="card">
+            <div class="card-header">Ewolucja Populacji (Long-term)</div>
+            <div class="chart-container">
+                <canvas id="popChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Dynamika Generacji (Co tick)</div>
+            <div class="chart-container">
+                <canvas id="tickChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let netPrey, netPred, popChart, tickChart;
+
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+
+    window.onload = () => {
+        initCharts();
+        loadLatest();
+    };
+
+    function updateUI(val) {
+        document.getElementById('genSlider').value = val;
+        document.getElementById('genInput').value = val;
+        document.getElementById('sliderVal').innerText = `Gen: ${val}`;
+        loadHistory();
+    }
+
+    function initCharts() {
+        const cfg = {
+            type: 'line',
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                elements: { point: { radius: 0 }, line: { borderWidth: 2 } },
+                scales: { x: { display: false }, y: { beginAtZero: true } }
+            }
+        };
+
+        popChart = new Chart(document.getElementById('popChart').getContext('2d'), {
+            ...cfg,
+            data: { labels: [], datasets: [
+                { label: 'Ofiary', borderColor: '#38bdf8', data: [] },
+                { label: 'Drapieżniki', borderColor: '#f43f5e', data: [] }
+            ]}
+        });
+
+        tickChart = new Chart(document.getElementById('tickChart').getContext('2d'), {
+            ...cfg,
+            data: { labels: [], datasets: [
+                { label: 'Ofiary', borderColor: '#38bdf8', data: [] },
+                { label: 'Drapieżniki', borderColor: '#f43f5e', data: [] }
+            ]}
+        });
+    }
+
+    function loadLatest() {
+        fetchData('prey', './prey_latest.json');
+        fetchData('predator', './predator_latest.json');
+        updateStats();
+    }
+
+    function loadHistory() {
+        const gen = document.getElementById('genInput').value;
+        const padded = gen.toString().padStart(6, '0');
+        fetchData('prey', `./history/prey_gen_${padded}.json`);
+        fetchData('predator', `./history/predator_gen_${padded}.json`);
+        updateTickChart(gen);
+    }
+
+    function fetchData(species, url) {
+        fetch(url + "?t=" + Date.now())
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById(`${species === 'prey' ? 'prey' : 'pred'}-title`).innerText = 
+                    `${species.toUpperCase()} | Gen: ${data.generation}`;
+                drawNetwork(species, data.nodes, data.edges);
+            }).catch(() => {});
+    }
+
+    function drawNetwork(species, nodesData, edgesData) {
+        const container = document.getElementById(species === 'prey' ? 'net-prey' : 'net-pred');
+        const conn = new Set();
+        edgesData.forEach(e => { conn.add(e.from); conn.add(e.to); });
+        
+        const nodes = new vis.DataSet(nodesData.filter(n => conn.has(n.id)).map(n => ({
+            id: n.id, label: n.label, shape: 'dot', size: 12,
+            level: n.type === 'input' ? 0 : (n.type === 'output' ? 2 : 1),
+            color: { background: n.type === 'input' ? '#4caf50' : (n.type === 'output' ? '#f43f5e' : '#8b5cf6'), border: '#0f172a' },
+            font: { color: 'white', size: 10 }
+        })));
+
+        const edges = new vis.DataSet(edgesData.map(e => ({
+            from: e.from, to: e.to, width: Math.min(Math.abs(e.weight) * 2, 5),
+            color: e.weight > 0 ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 63, 94, 0.5)',
+            arrows: 'to', smooth: { type: 'cubicBezier' }
+        })));
+
+        const options = { 
+            layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 800 } },
+            physics: false, interaction: { hover: true }
+        };
+        
+        if (species === 'prey') { if(netPrey) netPrey.destroy(); netPrey = new vis.Network(container, {nodes, edges}, options); }
+        else { if(netPred) netPred.destroy(); netPred = new vis.Network(container, {nodes, edges}, options); }
+    }
+
+    function updateStats() {
+        fetch('./stats.json?t=' + Date.now()).then(res => res.json()).then(data => {
+            const gens = data.map(d => d.generation);
+            if(gens.length > 0) document.getElementById('genSlider').max = Math.max(...gens, 1);
+            popChart.data.labels = gens;
+            popChart.data.datasets[0].data = data.map(d => d.prey_alive);
+            popChart.data.datasets[1].data = data.map(d => d.predator_alive);
+            popChart.update();
+        });
+    }
+
+    function updateTickChart(gen) {
+        const p = gen.toString().padStart(6, '0');
+        fetch(`./data/ticks/ticks_gen_${p}.csv?t=` + Date.now()).then(res => res.text()).then(csv => {
+            const rows = csv.split('\n').slice(1);
+            const l = [], prey = [], pred = [];
+            rows.forEach(r => {
+                const c = r.split(','); if(c.length < 3) return;
+                l.push(c[0]); prey.push(c[1]); pred.push(c[2]);
+            });
+            tickChart.data.labels = l;
+            tickChart.data.datasets[0].data = prey;
+            tickChart.data.datasets[1].data = pred;
+            tickChart.update();
+        }).catch(() => {});
+    }
+</script>
+</body>
+</html>
