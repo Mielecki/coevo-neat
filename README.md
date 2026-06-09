@@ -21,15 +21,15 @@ Agents perceive the world through **raycast sensors** (distance + object type pe
 
 ```text
 ┌─────────────────┐     ┌──────────────────┐     ┌───────────────────┐
-│  SensorSystem   │────▶│ EvolutionManager │────▶│    Environment      │
-│  (raycasting)   │     │  (TensorNEAT)    │     │  physics/collisions │
+│  SensorSystem     │──▶│  EvolutionManager  │──▶│    Environment      │
+│  (raycasting)     │     │  (TensorNEAT)     │     │  physics/collisions │
 └─────────────────┘     └──────────────────┘     │  reproduction/food  │
-         ▲                        ▲               └─────────┬─────────┘
-         │                        │                         │
-         └──────── SimulationManager (tick loop) ──────────┘
+         ▲                        ▲                  └─────────┬─────────┘
+         │                        │                             │
+         └──────── SimulationManager (tick loop) ─────────────┘
                               │
                     ┌─────────┴─────────┐
-                    ▼                   ▼
+                    ▼                     ▼
               Pygame (visual)     web/ exports (dashboard)
 ```
 
