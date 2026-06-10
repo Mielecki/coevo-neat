@@ -17,20 +17,35 @@ Watch hundreds of agents interact in real time, train headlessly at full speed, 
 
 Each generation unfolds inside a fixed-size world (default 3000×3000). Prey must find food and survive; predators hunt prey within a forward-facing attack cone. Both species spend energy on movement and metabolism, and can reproduce when they accumulate enough energy.
 
-Agents perceive the world through **raycast sensors** (distance + object type per ray, plus normalized energy). A small neural network outputs throttle and turn rate. At the end of each generation, fitness is aggregated per genome and both populations take an evolutionary step (`tell` → `ask`).
+Agents perceive the world through **raycast sensors** (distance + object type per ray, plus normalized energy). A small neural network outputs throttle and turn rate. At the end of each generation, fitness is aggregated per genome and both populations take an evolutionary step.
 
-```text
-┌─────────────────┐     ┌──────────────────┐     ┌───────────────────┐
-│  SensorSystem     │──▶│  EvolutionManager  │──▶│    Environment      │
-│  (raycasting)     │     │  (TensorNEAT)     │     │  physics/collisions │
-└─────────────────┘     └──────────────────┘     │  reproduction/food  │
-         ▲                        ▲                  └─────────┬─────────┘
-         │                        │                             │
-         └──────── SimulationManager (tick loop) ─────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                     ▼
-              Pygame (visual)     web/ exports (dashboard)
+```mermaid
+graph TD
+    linkStyle default stroke:#777,stroke-width:2px;
+
+    subgraph Core [ ]
+        direction LR
+        SS[SensorSystem<br>raycasting] --- EM[EvolutionManager<br>TensorNEAT]
+        EM --- ENV[Environment<br>physics / collisions]
+    end
+
+    SM[SimulationManager<br><b>tick loop</b>]
+    
+    PY[Pygame<br>visual]
+    WB[Web / Dashboard<br>exports]
+
+    SM -.-> SS
+    SM -.-> EM
+    ENV -.-> SM
+    
+    SM --> PY
+    SM --> WB
+
+    style Core fill:none,stroke:none;
+    classDef minimal fill:#fff,stroke:#333,stroke-width:1px,color:#000;
+    
+    class SS,EM,ENV,PY,WB minimal;
+    style SM fill:#fff,stroke:#000,stroke-width:3px,color:#000;
 ```
 
 ## Project Structure
